@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login Page</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="login-container">
+    <h2>Login</h2>
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Username" required />
+      <input type="password" id="password" placeholder="Password" required />
+      <button type="submit" >Login</button>
+      <p id="result" ></p>
+
+    </form>
+  </div>
+
+  <script>
+    // Timer functionality
+const TIMER_KEY = "countdownEndTime";
+const TIMER_DISPLAY = document.getElementById("timer");
+const totalTime = 90; // countdown duration in seconds
+
+let endTime = localStorage.getItem(TIMER_KEY);
+
+if (!endTime) {
+  endTime = Date.now() + totalTime * 1000;
+  localStorage.setItem(TIMER_KEY, endTime);
+} else {
+  endTime = parseInt(endTime);
+}
+
+function updateTimer() {
+  const now = Date.now();
+  const timeLeft = Math.max(0, Math.floor((endTime - now) / 1000));
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+
+  if (TIMER_DISPLAY) {
+    TIMER_DISPLAY.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  if (timeLeft <= 0) {
+    clearInterval(timerInterval);
+    localStorage.removeItem(TIMER_KEY);
+    if (TIMER_DISPLAY) TIMER_DISPLAY.textContent = "Eliminated.";
+    document.body.style.backgroundColor = "black";
+    window.location.replace("eliminated.html");
+  }
+}
+
+const timerInterval = setInterval(updateTimer, 1000);
+updateTimer();
+    document.getElementById("loginForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+    
+
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const res = await fetch("http://localhost:3000/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          // ✅ only redirect if login is successful
+          alert(data.message || "Login successful!");
+          window.location.href = "../profile/profile.html";
+        } else {
+          // ❌ don't redirect if login failed
+          alert(data.message );
+
+          document.getElementById("result").textContent = data.message || "Invalid credentials!";
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        document.getElementById("result").textContent = "Server error. Try again later.";
+      }
+    });
+  </script>
+</body>
+</html>

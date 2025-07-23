@@ -1,0 +1,764 @@
+Here's the code for a dedicated IDOR (Insecure Direct Object Reference) vulnerable website, designed with the "ISIS Network" theme for your educational bug bounty event.
+
+-----
+
+### **Important Security Warning\!**
+
+**This code is for educational and controlled testing purposes ONLY.**
+
+  * **DO NOT DEPLOY THIS ON A PUBLIC SERVER.** Exposing this code to the internet creates a severe security risk and could have serious legal consequences.
+  * **Use in Isolated Environments:** Only run this on your local machine, within a secure virtual machine, or in a dedicated, isolated lab environment provided by your event organizers.
+  * **Adhere to Event Rules:** Ensure you follow all rules and guidelines of your bug bounty event. They will specify where and how you can test.
+
+-----
+
+This page simplifies the dashboard to focus solely on demonstrating IDOR, allowing you to easily test how direct object references can be exploited without proper authorization checks.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ISIS Network - IDOR Test Site (Educational)</title>
+    <style>
+        /* General Theme Variables and Body Styles */
+        :root {
+            --primary-green: #00ff41;
+            --dark-green: #008020;
+            --accent-orange: #ff6b35;
+            --military-blue: #1e3a8a;
+            --bg-dark: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --text-muted: #808080;
+            --glass-bg: rgba(0, 255, 65, 0.08);
+            --glass-border: rgba(0, 255, 65, 0.2);
+            --matrix-green: #00ff41;
+            --warning-red: #dc2626;
+        }
+
+        body {
+            background-color: #0c0c0c;
+            color: #e74c3c;
+            font-family: "Courier New", monospace;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            overflow-x: hidden;
+            /* Prevent horizontal scroll on some devices */
+        }
+
+        /* Timer Styles (Static for this dedicated page) */
+        .timer-container {
+            position: fixed;
+            top: 70px;
+            right: 30px;
+            font-size: 40px;
+            font-style: italic;
+            text-shadow: 2px 2px 4px rgba(228, 18, 18, 0.7);
+            color: #00ff41;
+            font-weight: bold;
+            z-index: 9999;
+        }
+
+        /* Navbar Styles */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #111;
+            padding: 10px 20px;
+            color: white;
+            border-bottom: 3px solid red;
+            position: relative;
+            /* For glitch effect placement */
+        }
+
+        .navbar h1 {
+            display: flex;
+            margin-left: 700px;
+            /* Adjusted for desktop view */
+            align-items: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 40px;
+            font-weight: 700;
+            color: var(--primary-green);
+            text-shadow: 2px 2px 4px rgba(228, 18, 18, 0.7);
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            font-style: italic;
+        }
+
+        .icon {
+            height: 80px;
+            width: auto;
+        }
+
+        /* Main Container and Heading */
+        .container {
+            color: #ed0404;
+            margin: 20px auto;
+            padding: 30px;
+            max-width: 100%;
+            text-align: left;
+            display: flex;
+            justify-content: center;
+            text-shadow: 2px 2px 4px rgba(241, 5, 5, 0.7);
+        }
+
+        .container h1 {
+            font-size: 35px;
+            text-transform: uppercase;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--primary-green);
+            text-shadow: 2px 2px 4px rgba(228, 18, 18, 0.7);
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            font-style: italic;
+        }
+
+        /* Division (Info Box) Styles */
+        .division {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            padding: 3rem;
+            background: black;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-green);
+            border: 1px solid rgba(0, 255, 64, 0.719);
+            transition: all 0.3s ease;
+            position: relative;
+            font-weight: 500;
+            width: fit-content;
+            margin-left: 450px;
+            /* Adjusted for desktop view */
+            box-shadow: rgba(0, 255, 64, 0.503) 3px 4px 5px 0px;
+        }
+
+        .division:hover {
+            transform: translateY(-2px);
+            box-shadow:
+                0 12px 40px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(2, 241, 62, 0.89);
+            border-color: var(--primary-green);
+        }
+
+        .division ul {
+            list-style: none;
+            /* Remove default bullet points */
+            padding: 0;
+            margin: 0;
+        }
+
+        .division ul li {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, rgba(0, 255, 65, 0.05), rgba(30, 58, 138, 0.03));
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-green);
+            border: 1px solid rgba(2, 120, 32, 0.929);
+            transition: all 0.3s ease;
+            position: relative;
+            font-weight: bold;
+            color: #00ff41;
+        }
+
+        /* Glitch Effect */
+        .glitch {
+            animation: glitch 1s infinite;
+        }
+
+        @keyframes glitch {
+            0% {
+                text-shadow: 2px 2px rgba(255, 0, 0, 0.7), -2px -2px rgba(0, 255, 0, 0.7);
+                transform: translate(0, 0);
+            }
+
+            25% {
+                text-shadow: -2px 2px rgba(255, 0, 0, 0.7), 2px -2px rgba(0, 255, 0, 0.7);
+                transform: translate(-1px, 1px);
+            }
+
+            50% {
+                text-shadow: 2px -2px rgba(255, 0, 0, 0.7), -2px 2px rgba(0, 255, 0, 0.7);
+                transform: translate(1px, -1px);
+            }
+
+            75% {
+                text-shadow: -2px -2px rgba(255, 0, 0, 0.7), 2px 2px rgba(0, 255, 0, 0.7);
+                transform: translate(1px, 1px);
+            }
+
+            100% {
+                text-shadow: 2px 2px rgba(255, 0, 0, 0.7), -2px -2px rgba(0, 255, 0, 0.7);
+                transform: translate(0, 0);
+            }
+        }
+
+
+        /* IDOR Section Styles (main content) */
+        .idor-section {
+            width: 80%;
+            margin: 40px auto;
+            padding: 20px;
+            box-sizing: border-box;
+            background: #1a1a1a;
+            color: var(--primary-green);
+            font-family: monospace;
+            border: 1px dashed var(--primary-green);
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+        }
+
+        .idor-section h3 {
+            color: var(--primary-green);
+            margin-bottom: 15px;
+            text-shadow: 1px 1px 2px rgba(228, 18, 18, 0.7);
+        }
+
+        .idor-section p {
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+
+        .idor-section input[type="number"] {
+            width: calc(100% - 22px);
+            /* Account for padding and border */
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #000;
+            color: var(--primary-green);
+            border: 1px solid var(--primary-green);
+            box-sizing: border-box;
+        }
+
+        .idor-section button {
+            background: var(--warning-red);
+            color: white;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 7px;
+            cursor: pointer;
+            border: none;
+        }
+
+        .idor-profile-data {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px dashed var(--text-secondary);
+            background-color: #0a0a0a;
+            color: var(--text-secondary);
+        }
+
+        /* Matrix Background Styles */
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            /* Even lower than canvas for effect */
+            background:
+                radial-gradient(ellipse at center, rgba(9, 73, 25, 0.459) 0%, transparent 70%),
+                linear-gradient(180deg, var(--bg-dark) 0%, #0d1117 50%, var(--bg-dark) 100%);
+        }
+
+        .matrix-bg::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(4, 112, 31, 0.797) 0%, transparent 2%),
+                radial-gradient(circle at 75% 75%, rgba(30, 58, 138, 0.05) 0%, transparent 2%);
+            background-size: 70px 70px;
+            animation: matrixMove 25s linear infinite;
+        }
+
+        @keyframes matrixMove {
+            from {
+                background-position: 0 0;
+            }
+
+            to {
+                background-position: 100% 100%;
+            }
+        }
+
+        /* Matrix Canvas */
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1 !important;
+            /* Ensure canvas is behind content */
+            opacity: 0.3;
+        }
+
+
+        /* ===== LAPTOP RESPONSIVE MEDIA QUERIES (FROM PREVIOUS CODE) ===== */
+
+        /* Large Laptops and Desktops (1600px+) */
+        @media screen and (min-width: 1600px) {
+            .navbar h1 {
+                font-size: 48px;
+                margin-left: 800px;
+            }
+
+            .container h1 {
+                font-size: 48px;
+            }
+
+            .timer-container {
+                font-size: 48px;
+                top: 50px;
+                right: 40px;
+            }
+
+            .division {
+                margin-left: 400px;
+                padding: 4rem;
+            }
+
+            .idor-section {
+                width: 70%;
+                margin: 50px auto;
+            }
+        }
+
+        /* Standard Laptops (1366px - 1599px) */
+        @media screen and (max-width: 1599px) and (min-width: 1366px) {
+            .navbar h1 {
+                font-size: 36px;
+                margin-left: 565px;
+            }
+
+            .container h1 {
+                font-size: 36px;
+            }
+
+            .timer-container {
+                font-size: 36px;
+                top: 15px;
+                right: 45px;
+            }
+
+            .division {
+                margin-left: 370px;
+                padding: 3.5rem;
+                max-width: 800px;
+            }
+
+            .idor-section {
+                width: 85%;
+            }
+        }
+
+        /* Small Laptops (1024px - 1365px) */
+        @media screen and (max-width: 1365px) and (min-width: 1024px) {
+            .navbar {
+                padding: 8px 15px;
+            }
+
+            .navbar h1 {
+                font-size: 32px;
+                margin-left: 300px;
+                letter-spacing: 1px;
+            }
+
+            .container h1 {
+                font-size: 32px;
+            }
+
+            .timer-container {
+                font-size: 32px;
+                top: 65px;
+                right: 20px;
+            }
+
+            .icon {
+                height: 60px;
+            }
+
+            .division {
+                margin-left: 150px;
+                padding: 2rem;
+                max-width: 700px;
+            }
+
+            .division ul li {
+                font-size: 1rem;
+                padding: 0.8rem 1.2rem;
+            }
+
+            .idor-section {
+                width: 90%;
+                margin: 30px auto;
+            }
+        }
+
+        /* Very Small Laptops and Large Tablets (768px - 1023px) */
+        @media screen and (max-width: 1023px) and (min-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .navbar h1 {
+                font-size: 28px;
+                margin-left: 0;
+                text-align: center;
+            }
+
+            .container h1 {
+                font-size: 28px;
+                text-align: center;
+            }
+
+            .timer-container {
+                position: static;
+                font-size: 28px;
+                text-align: center;
+                margin: 10px 0;
+            }
+
+            .icon {
+                height: 50px;
+            }
+
+            .container {
+                margin: 15px auto;
+                padding: 20px;
+            }
+
+            .division {
+                margin-left: 50px;
+                margin-right: 50px;
+                padding: 1.5rem;
+                max-width: none;
+                width: auto;
+            }
+
+            .division ul li {
+                font-size: 0.9rem;
+                margin-bottom: 0.8rem;
+            }
+
+            .idor-section {
+                width: 95%;
+                margin: 25px auto;
+            }
+
+            .idor-section h3 {
+                font-size: 20px;
+            }
+        }
+
+        /* Mobile Devices (up to 767px) */
+        @media screen and (max-width: 767px) {
+            .navbar {
+                flex-direction: column;
+                padding: 8px;
+                gap: 8px;
+            }
+
+            .navbar h1 {
+                font-size: 24px;
+                margin-left: 0;
+                text-align: center;
+                letter-spacing: 1px;
+            }
+
+            .container h1 {
+                font-size: 24px;
+                text-align: center;
+            }
+
+            .timer-container {
+                position: static;
+                font-size: 24px;
+                text-align: center;
+                margin: 8px 0;
+            }
+
+            .icon {
+                height: 40px;
+            }
+
+            .container {
+                margin: 10px auto;
+                padding: 15px;
+            }
+
+            .division {
+                margin-left: 20px;
+                margin-right: 20px;
+                padding: 1rem;
+                max-width: none;
+                width: auto;
+            }
+
+            .division ul li {
+                font-size: 0.8rem;
+                padding: 0.6rem 0.8rem;
+                margin-bottom: 0.6rem;
+            }
+
+            .idor-section {
+                width: 98%;
+                margin: 20px auto;
+            }
+
+            .idor-section h3 {
+                font-size: 18px;
+            }
+
+            .idor-section input[type="number"] {
+                font-size: 14px;
+                padding: 8px;
+            }
+        }
+
+        /* High-DPI Laptops (Retina displays) */
+        @media screen and (min-width: 1024px) and (-webkit-min-device-pixel-ratio: 2) {
+
+            .timer-container,
+            .navbar h1,
+            .container h1 {
+                text-shadow: 3px 3px 6px rgba(228, 18, 18, 0.8);
+            }
+
+            .division:hover {
+                box-shadow:
+                    0 15px 50px rgba(0, 0, 0, 0.6),
+                    inset 0 1px 0 rgba(2, 241, 62, 0.95);
+            }
+        }
+
+        /* Landscape Orientation for Small Laptops */
+        @media screen and (max-height: 800px) and (min-width: 1024px) {
+            .division {
+                padding: 1.5rem;
+            }
+
+            .container {
+                margin: 15px auto;
+                padding: 20px;
+            }
+
+            .timer-container {
+                top: 40px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="matrix-bg"></div>
+
+    <nav class="navbar">
+        <h1 class="glitch">
+            <img src="https://i.ibb.co/30nK9wK/lockimg.png" alt="Cybersecurity Icon" class="icon" />
+            <span id="glitch-text">ISIS Network</span>
+        </h1>
+        <div class="timer-container">
+            <span id="timer">XX:XX</span> </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="glitch">IDOR Vulnerability Test Site</h1>
+    </div>
+
+    <div class="division">
+        <ul>
+            <li>This page demonstrates an Insecure Direct Object Reference (IDOR) vulnerability.</li>
+            <li>You can view "private" agent profiles simply by changing their ID.</li>
+            <li>There are no authorization checks in place.</li>
+            <li>Report any unauthorized access to data to the event organizers.</li>
+        </ul>
+    </div>
+
+    <div class="idor-section" id="idorSection">
+        <h3>Agent Profile Viewer (IDOR Vulnerability)</h3>
+        <p>Enter an **Agent ID** to view their profile. Try different IDs to access data you shouldn't be able to see.</p>
+        <input type="number" id="agentIdInput" value="101" min="101" max="105">
+        <button onclick="viewAgentProfile()">View Profile</button>
+        <div class="idor-profile-data">
+            <h4>Agent Profile: <span id="agentProfileName"></span></h4>
+            <p><strong>Agent ID:</strong> <span id="agentProfileId"></span></p>
+            <p><strong>Status:</strong> <span id="agentProfileStatus"></span></p>
+            <p><strong>Clearance Level:</strong> <span id="agentProfileClearance"></span></p>
+            <p><strong>Last Known Location:</strong> <span id="agentProfileLocation"></span></p>
+        </div>
+        <p style="color: yellow; font-size: 0.9em; margin-top: 10px;">
+            <strong>Hint:</strong> Valid and generally viewable IDs are **101, 102, 103**.
+            Try entering **104** or **105** to see unauthorized details.
+            Also, observe the URL: you can often manipulate the `agentId` parameter directly in the browser's address bar after viewing a profile (e.g., `?agentId=104`).
+        </p>
+    </div>
+
+
+    <script>
+        // --- IDOR VULNERABILITY CODE ---
+        // This function fetches "agent profile" data based on an ID.
+        // There are NO authorization checks, so any ID in agentData can be viewed.
+        const agentData = {
+            101: { name: "Agent Alpha", status: "Active", clearance: "Level 5 (Top Secret)", location: "Sector 7, Syria" },
+            102: { name: "Agent Bravo", status: "Missing (Last Contact: 48h ago)", clearance: "Level 4 (Confidential)", location: "Unknown, suspected dead" },
+            103: { name: "Agent Charlie", status: "Infiltrated (Deep Cover)", clearance: "Level 6 (Eyes Only)", location: "Moscow, Russia (Undercover)" },
+            // These IDs are intentionally "hidden" or imply higher sensitivity/unauthorized access
+            104: { name: "Agent Delta", status: "Deactivated (Sanctioned)", clearance: "Level 1 (Public)", location: "FILE REDACTED" },
+            105: { name: "Agent Echo", status: "MIA (Critical Mission)", clearance: "Level 7 (Code Black)", location: "CLASSIFIED LOCATION" }
+        };
+
+        function viewAgentProfile() {
+            const agentIdInput = document.getElementById('agentIdInput');
+            let agentId = parseInt(agentIdInput.value);
+
+            const profile = agentData[agentId];
+            const nameEl = document.getElementById('agentProfileName');
+            const idEl = document.getElementById('agentProfileId');
+            const statusEl = document.getElementById('agentProfileStatus');
+            const clearanceEl = document.getElementById('agentProfileClearance');
+            const locationEl = document.getElementById('agentProfileLocation');
+
+            if (profile) {
+                nameEl.textContent = profile.name;
+                idEl.textContent = agentId;
+                statusEl.textContent = profile.status;
+                clearanceEl.textContent = profile.clearance;
+                locationEl.textContent = profile.location;
+            } else {
+                nameEl.textContent = "UNAUTHORIZED / NOT FOUND";
+                idEl.textContent = agentId;
+                statusEl.textContent = "Access Denied or Agent ID Invalid.";
+                clearanceEl.textContent = "N/A";
+                locationEl.textContent = "N/A";
+            }
+
+            // Update URL to reflect the agent ID for easier IDOR testing
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('agentId', agentId);
+            window.history.pushState({ path: newUrl.href }, '', newUrl.href);
+        }
+
+        // --- THEME-RELATED JAVASCRIPT ---
+
+        // Matrix Rain Background
+        function createMatrixRain() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.style.position = 'fixed';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.zIndex = '-1';
+            canvas.style.opacity = '0.3';
+            document.body.appendChild(canvas);
+
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const matrix = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789@#$%^&*()*&^%+-/~{[|`]}";
+            const matrixArray = matrix.split("");
+
+            const fontSize = 10;
+            const columns = canvas.width / fontSize;
+
+            const drops = [];
+            for (let x = 0; x < columns; x++) {
+                drops[x] = 1;
+            }
+
+            function draw() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.07)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = '#00ff41';
+                ctx.font = fontSize + 'px JetBrains Mono';
+
+                for (let i = 0; i < drops.length; i++) {
+                    const text = matrixArray[Math.floor(Math.random() * matrixArray.length)];
+                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    drops[i]++;
+                }
+            }
+            setInterval(draw, 95);
+
+            // Adjust canvas size on window resize
+            window.addEventListener('resize', () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                // Reinitialize drops for new column count
+                const newColumns = canvas.width / fontSize;
+                drops.length = 0; // Clear existing drops
+                for (let x = 0; x < newColumns; x++) {
+                    drops[x] = Math.floor(Math.random() * (canvas.height / fontSize)); // Randomize initial drop positions
+                }
+            });
+        }
+
+        // Glitch effect for the main title
+        function glitchTitle() {
+            const glitchEl = document.getElementById("glitch-text");
+            const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+            const originalText = "ISIS Network";
+            let iteration = 0;
+
+            const interval = setInterval(() => {
+                const glitchText = originalText.split("")
+                    .map((char, index) => {
+                        if (index < iteration) return originalText[index];
+                        return letters[Math.floor(Math.random() * letters.length)];
+                    }).join("");
+
+                glitchEl.textContent = glitchText;
+
+                if (iteration >= originalText.length) {
+                    clearInterval(interval);
+                    glitchEl.textContent = originalText;
+                }
+
+                iteration += 1 / 2;
+            }, 50);
+        }
+
+        // Initial setup on page load
+        window.addEventListener('load', () => {
+            createMatrixRain(); // Initialize matrix rain background
+            glitchTitle(); // Start glitching the header title
+
+            // Check URL parameters on load to pre-populate IDOR input
+            const urlParams = new URLSearchParams(window.location.search);
+            const agentIdFromUrl = urlParams.get('agentId');
+            if (agentIdFromUrl && !isNaN(agentIdFromUrl)) {
+                document.getElementById('agentIdInput').value = agentIdFromUrl;
+            } else {
+                document.getElementById('agentIdInput').value = 101; // Default to 101
+            }
+            viewAgentProfile(); // Load profile on page load
+        });
+    </script>
+</body>
+
+</html>
+```
